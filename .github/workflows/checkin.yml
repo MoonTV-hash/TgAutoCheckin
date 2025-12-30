@@ -2,10 +2,10 @@ name: Telegram Auto Checkin
 
 on:
   schedule:
-    # 核心修改：北京时间凌晨 04:00 启动
-    # (UTC 时间为前一天的 20:00)
+    # 最终设定：北京时间凌晨 04:00 启动
+    # (UTC 20:00)
     - cron: '0 20 * * *'
-  workflow_dispatch: # 允许手动运行
+  workflow_dispatch: # 允许手动点击运行
 
 jobs:
   build:
@@ -47,11 +47,11 @@ jobs:
               async with TelegramClient(StringSession(session), api_id, api_hash) as client:
                   for item in configs:
                       try:
-                          # --- 1. 等待逻辑 (夜间模式) ---
+                          # --- 1. 等待逻辑 (多账号防封优化) ---
                           if item.get('priority') == True:
                               print(f"【优先执行】Bot {item['peer']} 立即签到！")
                           else:
-                              # 凌晨人少，但也保留随机等待 10~120秒，防封号
+                              # 随机等待 10~120秒，避免 10 个账号同时操作触发风控
                               wait_time = random.randint(10, 120)
                               print(f"【队列等待】{item['peer']} 随机等待 {wait_time} 秒...")
                               await asyncio.sleep(wait_time)
@@ -60,13 +60,15 @@ jobs:
                           print(f"向 {item['peer']} 发送: {item['message']}")
                           await client.send_message(item['peer'], item['message'])
                           
-                          # --- 3. 智能按钮点击 (模糊匹配) ---
+                          # --- 3. 智能按钮点击 (优化版：搜索最近3条) ---
                           if item.get('button'):
                               print(f"正在寻找包含 [{item['button']}] 的按钮...")
-                              await asyncio.sleep(8) # 等待机器人回复
+                              await asyncio.sleep(8) # 给机器人一点反应时间
                               
                               found = False
-                              async for bot_msg in client.iter_messages(item['peer'], limit=1):
+                              # 关键优化：查看最近 3 条消息
+                              # 防止机器人发完面板后紧接着发了一条广告，导致脚本漏看面板
+                              async for bot_msg in client.iter_messages(item['peer'], limit=3):
                                   if bot_msg.buttons:
                                       for row in bot_msg.buttons:
                                           for btn in row:
@@ -77,9 +79,10 @@ jobs:
                                                   found = True
                                                   break
                                           if found: break
+                                  if found: break # 找到了就停止翻找，避免误触旧消息
                               
                               if not found:
-                                  print(f"⚠️ 未找到包含 [{item['button']}] 的按钮")
+                                  print(f"⚠️ 在最近3条消息中未找到包含 [{item['button']}] 的按钮")
 
                       except Exception as e:
                           print(f"❌ {item['peer']} 执行失败: {e}")
