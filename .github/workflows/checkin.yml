@@ -3,9 +3,8 @@ name: Telegram Auto Checkin
 on:
   schedule:
     # 北京时间 11:15 启动 (UTC 03:15)
-    # 如果你想改回凌晨 00:01 启动，请改为 '1 16 * * *'
     - cron: '15 3 * * *'
-  workflow_dispatch: # 允许手动点击运行
+  workflow_dispatch:
 
 jobs:
   build:
@@ -41,42 +40,44 @@ jobs:
                   session = os.environ['SESSION']
                   configs = json.loads(os.environ['CHECK_IN_CONFIG'])
               except Exception as e:
-                  print(f"配置读取失败，请检查 Secrets: {e}")
+                  print(f"配置读取失败: {e}")
                   return
 
               async with TelegramClient(StringSession(session), api_id, api_hash) as client:
                   for item in configs:
                       try:
-                          # --- 1. 等待逻辑 (针对多账号优化) ---
+                          # --- 1. 等待逻辑 ---
                           if item.get('priority') == True:
-                              print(f"【抢分模式】检测到优先 Bot {item['peer']}，立即执行！")
+                              print(f"【抢分模式】Bot {item['peer']} 立即执行！")
                           else:
-                              # 修改点：将等待时间缩短为 10秒 到 120秒 (2分钟)
-                              # 10个机器人总共约耗时 10-15 分钟，既省额度又安全
                               wait_time = random.randint(10, 120)
-                              print(f"【安全模式】{item['peer']} 将随机等待 {wait_time} 秒...")
+                              print(f"【安全模式】{item['peer']} 随机等待 {wait_time} 秒...")
                               await asyncio.sleep(wait_time)
                           
-                          # --- 2. 发送消息 ---
-                          print(f"正在向 {item['peer']} 发送: {item['message']}")
+                          # --- 2. 发送指令 ---
+                          print(f"向 {item['peer']} 发送: {item['message']}")
                           await client.send_message(item['peer'], item['message'])
                           
-                          # --- 3. 按钮点击 (针对 OkEmbyBot 等) ---
+                          # --- 3. 智能按钮点击 (模糊匹配) ---
                           if item.get('button'):
-                              print(f"等待 {item['peer']} 回复面板，并寻找按钮：[{item['button']}]...")
-                              await asyncio.sleep(8) # 给机器人一点反应时间
+                              print(f"正在寻找包含 [{item['button']}] 的按钮...")
+                              await asyncio.sleep(8) 
                               
-                              # 获取机器人最新回复
                               found = False
                               async for bot_msg in client.iter_messages(item['peer'], limit=1):
                                   if bot_msg.buttons:
-                                      await bot_msg.click(text=item['button'])
-                                      print(f"✅ 成功点击了按钮：{item['button']}")
-                                      found = True
+                                      for row in bot_msg.buttons:
+                                          for btn in row:
+                                              # 核心修改：只要按钮文字里包含配置的关键词，就点击
+                                              if item['button'] in btn.text:
+                                                  await btn.click()
+                                                  print(f"✅ 成功点击按钮：[{btn.text}]")
+                                                  found = True
+                                                  break
+                                          if found: break
+                              
                               if not found:
-                                  print(f"⚠️ 未找到按钮 [{item['button']}]，请检查文字是否正确")
-                          else:
-                              print(f"✅ 文字指令发送完毕")
+                                  print(f"⚠️ 未找到包含 [{item['button']}] 的按钮")
 
                       except Exception as e:
                           print(f"❌ {item['peer']} 执行失败: {e}")
