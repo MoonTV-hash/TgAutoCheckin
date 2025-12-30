@@ -2,7 +2,8 @@ name: Telegram Auto Checkin
 
 on:
   schedule:
-    - cron: '30 0 * * *' # 北京时间每天上午 8:30 自动运行
+    # 设定在北京时间 11:15 启动（UTC 时间 03:15）
+    - cron: '15 3 * * *' 
   workflow_dispatch: # 支持手动点击运行
 
 jobs:
@@ -28,23 +29,37 @@ jobs:
           CHECK_IN_CONFIG: ${{ secrets.CHECK_IN_CONFIG }}
         run: |
           cat << 'EOF' > run_checkin.py
-          import asyncio, json, os
+          import asyncio, json, os, random
           from telethon import TelegramClient
           from telethon.sessions import StringSession
 
           async def main():
-              api_id = int(os.environ['API_ID'])
-              api_hash = os.environ['API_HASH']
-              session = os.environ['SESSION']
-              configs = json.loads(os.environ['CHECK_IN_CONFIG'])
-              
+              try:
+                  api_id = int(os.environ['API_ID'])
+                  api_hash = os.environ['API_HASH']
+                  session = os.environ['SESSION']
+                  configs = json.loads(os.environ['CHECK_IN_CONFIG'])
+              except Exception as e:
+                  print(f"读取配置失败，请检查 Secrets: {e}")
+                  return
+
               async with TelegramClient(StringSession(session), api_id, api_hash) as client:
                   for item in configs:
                       try:
+                          # 1. 优先模式判断
+                          if item.get('priority') == True:
+                              print(f"【高分狙击】检测到优先 Bot {item['peer']}，立即执行签到...")
+                          else:
+                              # 2. 随机模式：等待 1-20 分钟
+                              wait_time = random.randint(60, 1200)
+                              print(f"【安全模式】普通 Bot {item['peer']}，随机等待 {wait_time // 60} 分钟...")
+                              await asyncio.sleep(wait_time)
+                          
+                          # 3. 发送指令
                           await client.send_message(item['peer'], item['message'])
-                          print(f"成功向 {item['peer']} 发送了 {item['message']}")
+                          print(f"✅ 成功向 {item['peer']} 发送: {item['message']}")
                       except Exception as e:
-                          print(f"向 {item['peer']} 签到失败: {e}")
+                          print(f"❌ 向 {item['peer']} 签到失败: {e}")
 
           if __name__ == '__main__':
               asyncio.run(main())
