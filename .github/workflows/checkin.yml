@@ -2,9 +2,10 @@ name: Telegram Auto Checkin
 
 on:
   schedule:
-    # 北京时间 11:15 启动 (UTC 03:15)
-    - cron: '15 3 * * *'
-  workflow_dispatch:
+    # 核心修改：北京时间凌晨 04:00 启动
+    # (UTC 时间为前一天的 20:00)
+    - cron: '0 20 * * *'
+  workflow_dispatch: # 允许手动运行
 
 jobs:
   build:
@@ -46,12 +47,13 @@ jobs:
               async with TelegramClient(StringSession(session), api_id, api_hash) as client:
                   for item in configs:
                       try:
-                          # --- 1. 等待逻辑 ---
+                          # --- 1. 等待逻辑 (夜间模式) ---
                           if item.get('priority') == True:
-                              print(f"【抢分模式】Bot {item['peer']} 立即执行！")
+                              print(f"【优先执行】Bot {item['peer']} 立即签到！")
                           else:
+                              # 凌晨人少，但也保留随机等待 10~120秒，防封号
                               wait_time = random.randint(10, 120)
-                              print(f"【安全模式】{item['peer']} 随机等待 {wait_time} 秒...")
+                              print(f"【队列等待】{item['peer']} 随机等待 {wait_time} 秒...")
                               await asyncio.sleep(wait_time)
                           
                           # --- 2. 发送指令 ---
@@ -61,14 +63,14 @@ jobs:
                           # --- 3. 智能按钮点击 (模糊匹配) ---
                           if item.get('button'):
                               print(f"正在寻找包含 [{item['button']}] 的按钮...")
-                              await asyncio.sleep(8) 
+                              await asyncio.sleep(8) # 等待机器人回复
                               
                               found = False
                               async for bot_msg in client.iter_messages(item['peer'], limit=1):
                                   if bot_msg.buttons:
                                       for row in bot_msg.buttons:
                                           for btn in row:
-                                              # 核心修改：只要按钮文字里包含配置的关键词，就点击
+                                              # 只要按钮文字包含关键词（如"签到"）就点
                                               if item['button'] in btn.text:
                                                   await btn.click()
                                                   print(f"✅ 成功点击按钮：[{btn.text}]")
