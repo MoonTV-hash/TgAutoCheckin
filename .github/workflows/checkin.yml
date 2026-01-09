@@ -16,7 +16,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python_version: '3.10'
+          # 👇 之前是 python_version (下划线)，现在改成了 python-version (减号)
+          # 这样就不会有黄色叹号警告了
+          python-version: '3.10'
 
       - name: Install dependencies
         run: pip install telethon
@@ -44,9 +46,8 @@ jobs:
                   return
 
               async with TelegramClient(StringSession(session), api_id, api_hash) as client:
-                  # --- 🆕 新增：全局随机启动延迟 (拟人化核心) ---
-                  # 脚本启动后，先随机发呆 10秒 到 900秒 (15分钟)
-                  # 这样每天的签到时间点都会大幅波动，彻底打破规律
+                  # --- 1. 全局拟人化等待 (睡懒觉) ---
+                  # 脚本启动后，随机发呆 10秒 ~ 15分钟
                   global_delay = random.randint(10, 900)
                   print(f"😪 【拟人化】脚本决定先睡个懒觉，{global_delay} 秒后再开始工作...")
                   await asyncio.sleep(global_delay)
@@ -54,7 +55,7 @@ jobs:
 
                   for item in configs:
                       try:
-                          # --- 1. 内部排队等待 ---
+                          # --- 2. 内部队列等待 ---
                           if item.get('priority') == True:
                               print(f"【优先执行】Bot {item['peer']} 立即签到！")
                           else:
@@ -62,11 +63,11 @@ jobs:
                               print(f"【队列等待】{item['peer']} 随机等待 {wait_time} 秒...")
                               await asyncio.sleep(wait_time)
                           
-                          # --- 2. 发送指令 ---
+                          # --- 3. 发送指令 ---
                           print(f"向 {item['peer']} 发送: {item['message']}")
                           await client.send_message(item['peer'], item['message'])
                           
-                          # --- 3. 智能按钮点击 ---
+                          # --- 4. 智能按钮点击 (搜最近3条) ---
                           if item.get('button'):
                               print(f"正在寻找包含 [{item['button']}] 的按钮...")
                               await asyncio.sleep(8)
