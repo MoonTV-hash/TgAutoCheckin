@@ -61,12 +61,15 @@ jobs:
               try:
                   mail_user = os.environ.get('MAIL_USER')
                   mail_pass = os.environ.get('MAIL_PASS')
-                  if not mail_user or not mail_pass: return
+                  
+                  if not mail_user or not mail_pass:
+                      print("⚠️ 警告：未配置 MAIL_USER 或 MAIL_PASS，无法发送邮件！")
+                      return
 
                   log_html = "<br>".join(execution_log)
                   today = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime('%Y-%m-%d')
                   
-                  # --- 统一的恶趣味文案 ---
+                  # --- 小号专属文案 ---
                   if fail_count == 0:
                       status_color = "#2ecc71" 
                       flavor_text = "🤖 报告主人：您的电子奴隶 (V4.11) 运转完美。我们成功欺骗了碳基生物的审查，所有羊毛都已收割进您的数字仓库。"
@@ -112,6 +115,7 @@ jobs:
                   message = MIMEText(html_content, 'html', 'utf-8')
                   
                   # 🛠️ 终极修复：使用 formataddr 标准化发件人格式
+                  # 这会自动处理编码和格式，彻底解决 QQ 邮箱收不到的问题
                   message['From'] = formataddr(("Lily签到管家", mail_user))
                   
                   message['To'] = Header("Master", 'utf-8')
@@ -134,6 +138,7 @@ jobs:
                   session = os.environ['SESSION']
                   configs = json.loads(os.environ['CHECK_IN_CONFIG'])
               except Exception as e:
+                  print(f"❌ 启动失败，请检查 Secrets 配置: {e}")
                   return
 
               # 🛡️ 1:1 还原真实设备 (OnePlus 13)
@@ -158,6 +163,7 @@ jobs:
                           print(f"⏳ 切换会话: {item['peer']} (Wait: {wait_time}s)")
                           await asyncio.sleep(wait_time)
                           
+                          # 判定是否是指令签到
                           await client.send_message(item['peer'], item['message'])
                           
                           if item.get('button'):
@@ -206,5 +212,3 @@ jobs:
 
           if __name__ == '__main__':
               asyncio.run(main())
-          EOF
-          python run_checkin.py
