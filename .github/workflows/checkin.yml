@@ -48,9 +48,6 @@ jobs:
           # --- 配置区 ---
           FALLBACK_KEYWORDS = ["签到", "打卡", "Check In", "Check-in", "Sign In", "领取", "Collect", "Bonus"]
           DANGER_KEYWORDS = ["验证码", "captcha", "verification", "封禁", "ban", "异常", "人工"]
-          
-          # ⭐ 重点关注对象
-          FOCUS_PEER = "@lilyembybot"
 
           execution_log = []
           success_count = 0
@@ -77,27 +74,10 @@ jobs:
                   log_html = "<br>".join(execution_log)
                   today = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime('%Y-%m-%d')
                   
-                  # 🔍 特写逻辑
-                  focus_status = "❓ 未执行/未找到"
-                  focus_color = "#95a5a6" # 灰色
-                  focus_bg = "#f3f4f6"
-                  
-                  for line in execution_log:
-                      if FOCUS_PEER in line:
-                          if "✅" in line:
-                              focus_status = "✅ 签到成功"
-                              focus_color = "#2e7d32" # 绿色
-                              focus_bg = "#e8f5e9"
-                          elif "❌" in line or "⚠️" in line:
-                              focus_status = "❌ 签到失败"
-                              focus_color = "#c62828" # 红色
-                              focus_bg = "#ffebee"
-                          break
-
-                  # 🎭 小号文案
-                  flavor_text = "🤖 卑微的马甲：替身使者已完成任务。"
+                  # 🎭 小号纯净版文案
+                  flavor_text = "🤖 卑微的马甲：任务汇报。"
                   if fail_count > 0:
-                      flavor_text += f" 注意：有 {fail_count} 个失败。"
+                      flavor_text += f" ⚠️ 注意：有 {fail_count} 个任务失败，请检查日志。"
 
                   html_content = f"""
                   <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
@@ -105,15 +85,6 @@ jobs:
                           <h2 style="margin:0;">📅 每日战报 ({today})</h2>
                       </div>
                       
-                      <div style="background: {focus_bg}; padding: 15px 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
-                          <div>
-                              <span style="font-size: 12px; color: #7f8c8d; font-weight: bold; text-transform: uppercase;">重点关注 ({FOCUS_PEER})</span>
-                              <div style="font-size: 24px; font-weight: bold; color: {focus_color}; margin-top: 5px;">
-                                  {focus_status}
-                              </div>
-                          </div>
-                          <div style="font-size: 30px;">🐱</div>
-                      </div>
                       <div style="padding: 20px;">
                           <p style="color: #34495e; font-size: 14px; margin-top: 0;">{flavor_text}</p>
                           <div style="display: flex; gap: 10px; margin: 20px 0;">
@@ -134,8 +105,10 @@ jobs:
                   message = MIMEText(html_content, 'html', 'utf-8')
                   message['From'] = formataddr(("Telegram管家", mail_user))
                   message['To'] = Header("Master", 'utf-8')
-                  subject_icon = "✅" if "成功" in focus_status else "❌"
-                  message['Subject'] = Header(f"TG战报 🎭 | {subject_icon} Lily | 总计:{success_count}/{success_count+fail_count}", 'utf-8')
+                  
+                  # 标题简化，去掉 Lily 图标
+                  status_icon = "✅" if fail_count == 0 else "⚠️"
+                  message['Subject'] = Header(f"TG战报 🎭 | {status_icon} 完成度: {success_count}/{success_count+fail_count}", 'utf-8')
 
                   smtpObj = smtplib.SMTP_SSL('smtp.qq.com', 465)
                   smtpObj.login(mail_user, mail_pass)
@@ -169,7 +142,6 @@ jobs:
               
               print(f"📅 日期: {today_str} | 🎰 今日吉时: {target_hour}点 | ⌚ 当前: {current_hour}点")
 
-              # 获取外部强制开关
               is_force = os.environ.get('FORCE_RUN') == 'true'
 
               if current_hour != target_hour and not is_force:
