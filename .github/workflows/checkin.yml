@@ -2,8 +2,9 @@ name: Telegram Auto Checkin (Alt)
 
 on:
   schedule:
-    # ⚡ V4.30 配置：北京时间 07:00 ~ 11:00 每小时唤醒一次
-    - cron: '5 23-3 * * *'
+    # ✅ 修正版：UTC 23点 和 0-3点 (对应北京时间 07:00-11:00)
+    # 完美覆盖：7, 8, 9, 10, 11 点整
+    - cron: '5 23,0-3 * * *'
   workflow_dispatch:
     inputs:
       force_run:
@@ -145,7 +146,7 @@ jobs:
               
               is_force = os.environ.get('FORCE_RUN') == 'true'
 
-              # 📱 设备伪装：同样使用 OnePlus 13 (保持一致性更好)
+              # 📱 设备伪装：OnePlus 13
               async with TelegramClient(StringSession(session), api_id, api_hash, device_model="OnePlus 13", system_version="Android 16", app_version="12.3.1", lang_code="zh", system_lang_code="zh-CN") as client:
                   log("🔍 前置雷达启动，正在扫描状态...")
                   
