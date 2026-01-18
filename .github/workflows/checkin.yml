@@ -2,8 +2,7 @@ name: Telegram Auto Checkin (Alt)
 
 on:
   schedule:
-    # ✅ 修正版：UTC 23点 和 0-3点 (对应北京时间 07:00-11:00)
-    # 完美覆盖：7, 8, 9, 10, 11 点整
+    # ✅ 修正版 Cron
     - cron: '5 23,0-3 * * *'
   workflow_dispatch:
     inputs:
@@ -50,6 +49,9 @@ jobs:
           FALLBACK_KEYWORDS = ["签到", "打卡", "Check In", "Check-in", "Sign In", "领取", "Collect", "Bonus"]
           DANGER_KEYWORDS = ["验证码", "captcha", "verification", "封禁", "ban", "异常", "人工"]
           SUCCESS_KEYWORDS = ["成功", "获得", "Success", "earned", "Credit", "金币", "已签到", "already"]
+          
+          # 小号也可以设置关注对象，默认 Lily，没有的话也不会报错
+          FOCUS_PEER = "@lilyembybot"
 
           execution_log = []
           success_count = 0
@@ -67,9 +69,8 @@ jobs:
               execution_log.append(f"[{timestamp}] {message}")
 
           def send_email_report():
-              # 🔇 静默模式
               if success_count == 0 and fail_count == 0 and skip_count > 0:
-                  print("✨ [前置侦查] 今日任务此前已完成，静默退出。")
+                  print("✨ [前置侦查] 任务已完成，静默退出。")
                   return
 
               try:
@@ -81,16 +82,60 @@ jobs:
                   log_html = "<br>".join(execution_log)
                   today = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime('%Y-%m-%d')
                   
-                  # 🎭 小号专属标题
-                  subject_title = "TG战报 (Alt) 🎭"
+                  # 🎨 Focus Card 逻辑
+                  focus_status = "❓ 未执行/未找到"
+                  focus_color = "#95a5a6"
+                  focus_bg = "#f3f4f6"
                   
+                  found_focus = False
+                  for line in execution_log:
+                      if FOCUS_PEER in line:
+                          found_focus = True
+                          if "✅" in line or "成功" in line:
+                              focus_status = "✅ 签到成功"
+                              focus_color = "#2e7d32"
+                              focus_bg = "#e8f5e9"
+                          elif "⏭️" in line:
+                              focus_status = "💤 今日已签 (跳过)"
+                              focus_color = "#1565c0"
+                              focus_bg = "#e3f2fd"
+                          elif "❌" in line:
+                              focus_status = "❌ 签到失败"
+                              focus_color = "#c62828"
+                              focus_bg = "#ffebee"
+                          break
+                  
+                  if not found_focus:
+                      focus_status = "⚠️ 无重点对象"
+
                   html_content = f"""
                   <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
                       <div style="background: #2c3e50; padding: 20px; text-align: center; color: #fff;">
                           <h2 style="margin:0;">📅 每日战报 ({today})</h2>
                       </div>
+                      
+                      <div style="background: {focus_bg}; padding: 15px 20px; border-bottom: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: space-between;">
+                          <div>
+                              <span style="font-size: 12px; color: #7f8c8d; font-weight: bold; text-transform: uppercase;">重点关注 ({FOCUS_PEER})</span>
+                              <div style="font-size: 24px; font-weight: bold; color: {focus_color}; margin-top: 5px;">
+                                  {focus_status}
+                              </div>
+                          </div>
+                          <div style="font-size: 30px;">🎭</div>
+                      </div>
+
                       <div style="padding: 20px;">
-                          <p style="color: #34495e; font-size: 14px; margin-top: 0;">🤖 智能管家汇报：{success_count} 成功, {skip_count} 跳过。</p>
+                          <p style="color: #34495e; font-size: 14px; margin-top: 0;">🤖 马甲汇报：任务情况如下。</p>
+                          
+                          <div style="display: flex; gap: 10px; margin: 20px 0;">
+                              <div style="flex:1; background:#e8f5e9; padding:15px; text-align:center; border-radius:6px; color:#2e7d32; font-weight:bold; font-size:16px;">
+                                  ✅ 总成功: {success_count}
+                              </div>
+                              <div style="flex:1; background:#ffebee; padding:15px; text-align:center; border-radius:6px; color:#c62828; font-weight:bold; font-size:16px;">
+                                  ❌ 总失败: {fail_count}
+                              </div>
+                          </div>
+                          
                           <div style="background:#f8f9fa; padding:15px; font-size:12px; font-family:monospace; height:300px; overflow-y:auto; border-radius:4px; border: 1px solid #eee;">
                               {log_html}
                           </div>
@@ -101,8 +146,11 @@ jobs:
                   message = MIMEText(html_content, 'html', 'utf-8')
                   message['From'] = formataddr(("Telegram管家", mail_user))
                   message['To'] = Header("Master", 'utf-8')
+                  
                   status_icon = "✅" if fail_count == 0 else "⚠️"
-                  message['Subject'] = Header(f"{subject_title} | {status_icon} 状态: {success_count}签/{skip_count}跳", 'utf-8')
+                  if success_count == 0 and skip_count > 0: status_icon = "💤"
+
+                  message['Subject'] = Header(f"TG战报 (小号) 🎭 | {status_icon} 完成度:{success_count+skip_count}/{success_count+skip_count+fail_count}", 'utf-8')
 
                   smtpObj = smtplib.SMTP_SSL('smtp.qq.com', 465)
                   smtpObj.login(mail_user, mail_pass)
@@ -122,7 +170,7 @@ jobs:
                   print(f"❌ 配置读取失败: {e}")
                   return
 
-              # =========== ⚡ V4.30: 加权拟人 + 极速熔断 + 11点死命令 ===========
+              # =========== ⚡ V4.31: 加权拟人 + 前置侦查 + 11点死命令 ===========
               utc_now = datetime.datetime.utcnow()
               cst_now = utc_now + datetime.timedelta(hours=8)
               current_hour = cst_now.hour
@@ -134,10 +182,8 @@ jobs:
               candidates = [7, 8, 9, 10]
               if weekday <= 4: # 周一至周五
                   weights = [30, 40, 20, 10]
-                  mode_name = "💼 工作日 (早起搬砖)"
               else:            # 周末
                   weights = [10, 10, 40, 40]
-                  mode_name = "🛌 周末 (赖床休息)"
               target_hour = random.choices(candidates, weights=weights, k=1)[0]
               random.seed()
 
@@ -146,11 +192,9 @@ jobs:
               
               is_force = os.environ.get('FORCE_RUN') == 'true'
 
-              # 📱 设备伪装：OnePlus 13
               async with TelegramClient(StringSession(session), api_id, api_hash, device_model="OnePlus 13", system_version="Android 16", app_version="12.3.1", lang_code="zh", system_lang_code="zh-CN") as client:
-                  log("🔍 前置雷达启动，正在扫描状态...")
+                  log("🔍 前置雷达启动...")
                   
-                  # --- 第一步：全局侦查 (熔断机制) ---
                   all_done = True
                   random.shuffle(configs)
 
@@ -171,31 +215,27 @@ jobs:
                           all_done = False
                           break
                   
-                  # ✨ 熔断
                   if all_done and not is_force:
-                      log("✨ [熔断触发] 检测到任务已完成！停止运行。")
+                      log("✨ [前置侦查] 检测到任务已完成！停止运行。")
                       skip_count += len(configs)
                       send_email_report()
                       return 
 
-                  # --- 第二步：准入判断 ---
                   is_last_call = (current_hour == 11)
 
                   if current_hour != target_hour and not is_last_call and not is_force:
                       print(f"💤 尚未完成，但当前非吉时 ({target_hour}点)，暂不行动... (Exit)")
                       return
 
-                  # --- 第三步：挂机潜伏 ---
                   if is_last_call:
-                       wait_seconds = random.randint(10, 120)
+                       wait_seconds = random.randint(10, 120) 
                        print(f"🚨 启动11点强制兜底... (等待 {wait_seconds}s)")
                   else:
-                       wait_seconds = random.randint(60, 2700)
+                       wait_seconds = random.randint(60, 2700) 
                        print(f"🎯 启动日常签到... (在线挂机 {wait_seconds//60} 分钟)")
                   
                   await asyncio.sleep(wait_seconds)
 
-                  # --- 第四步：执行补漏 ---
                   log("⚡ 开始执行任务...")
                   for item in configs:
                       try:
