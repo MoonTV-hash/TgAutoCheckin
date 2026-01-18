@@ -2,7 +2,7 @@ name: Telegram Auto Checkin (Alt)
 
 on:
   schedule:
-    # ✅ 修正版 Cron
+    # ✅ 北京时间 7, 8, 9, 10, 11 点整唤醒
     - cron: '5 23,0-3 * * *'
   workflow_dispatch:
     inputs:
@@ -50,7 +50,7 @@ jobs:
           DANGER_KEYWORDS = ["验证码", "captcha", "verification", "封禁", "ban", "异常", "人工"]
           SUCCESS_KEYWORDS = ["成功", "获得", "Success", "earned", "Credit", "金币", "已签到", "already"]
           
-          # 小号也可以设置关注对象，默认 Lily，没有的话也不会报错
+          # 小号默认关注 (可以改为其他)
           FOCUS_PEER = "@lilyembybot"
 
           execution_log = []
@@ -82,7 +82,7 @@ jobs:
                   log_html = "<br>".join(execution_log)
                   today = (datetime.datetime.utcnow() + datetime.timedelta(hours=8)).strftime('%Y-%m-%d')
                   
-                  # 🎨 Focus Card 逻辑
+                  # 🎨 UI: Focus Card
                   focus_status = "❓ 未执行/未找到"
                   focus_color = "#95a5a6"
                   focus_bg = "#f3f4f6"
@@ -150,6 +150,7 @@ jobs:
                   status_icon = "✅" if fail_count == 0 else "⚠️"
                   if success_count == 0 and skip_count > 0: status_icon = "💤"
 
+                  # 📧 小号中文标题
                   message['Subject'] = Header(f"TG战报 (小号) 🎭 | {status_icon} 完成度:{success_count+skip_count}/{success_count+skip_count+fail_count}", 'utf-8')
 
                   smtpObj = smtplib.SMTP_SSL('smtp.qq.com', 465)
@@ -170,14 +171,13 @@ jobs:
                   print(f"❌ 配置读取失败: {e}")
                   return
 
-              # =========== ⚡ V4.31: 加权拟人 + 前置侦查 + 11点死命令 ===========
+              # =========== ⚡ V4.32: 节能版 (wait max 15min) ===========
               utc_now = datetime.datetime.utcnow()
               cst_now = utc_now + datetime.timedelta(hours=8)
               current_hour = cst_now.hour
               today_str = cst_now.strftime('%Y%m%d')
               weekday = cst_now.weekday()
               
-              # 1. 算出今天的吉时 (加权算法)
               random.seed(today_str)
               candidates = [7, 8, 9, 10]
               if weekday <= 4: # 周一至周五
@@ -227,11 +227,12 @@ jobs:
                       print(f"💤 尚未完成，但当前非吉时 ({target_hour}点)，暂不行动... (Exit)")
                       return
 
+                  # ⚡ 改动点：潜伏时间优化为 1~15 分钟
                   if is_last_call:
                        wait_seconds = random.randint(10, 120) 
                        print(f"🚨 启动11点强制兜底... (等待 {wait_seconds}s)")
                   else:
-                       wait_seconds = random.randint(60, 2700) 
+                       wait_seconds = random.randint(60, 900) # <--- 这里改了
                        print(f"🎯 启动日常签到... (在线挂机 {wait_seconds//60} 分钟)")
                   
                   await asyncio.sleep(wait_seconds)
