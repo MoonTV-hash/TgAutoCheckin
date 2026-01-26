@@ -59,7 +59,9 @@ jobs:
 
           # --- 基础配置 ---
           FALLBACK_KEYWORDS = ["签到", "打卡", "Check In", "Check-in", "Sign In", "领取", "Collect", "Bonus"]
-          FOCUS_PEER = "@lilyembybot"
+          
+          # 👇👇👇 这里改成了 @qing_to 👇👇👇
+          FOCUS_PEER = "@qing_to"
 
           execution_log = []
           success_count = 0
