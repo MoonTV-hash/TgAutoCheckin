@@ -2,6 +2,7 @@ name: Telegram Auto Checkin (Alt)
 
 on:
   schedule:
+    # ✅ 错峰乱序定时
     - cron: '12 23 * * *'
     - cron: '38 0 * * *'
     - cron: '24 1 * * *'
@@ -186,11 +187,11 @@ jobs:
               utc_now = datetime.datetime.utcnow(); cst_now = utc_now + datetime.timedelta(hours=8)
               current_hour = cst_now.hour
               today_str = cst_now.strftime('%Y-%m-%d')
-              month_str = cst_now.strftime('%Y-%m') # 新增
+              month_str = cst_now.strftime('%Y-%m')
               weekday = cst_now.weekday()
               is_force = os.environ.get('FORCE_RUN') == 'true'
 
-              # 1. 🔍 查账本
+              # 1. 🔍 第一次查账本 (启动时)
               log(f"🔍 [{AC_TAG}] 正在检查 GitHub Issue 账本...")
               is_done, issue_num = check_github_ledger(today_str, month_str)
               if is_done and not is_force:
@@ -221,6 +222,13 @@ jobs:
               wait_seconds = random.randint(60, 1200)
               log(f"⏳ 决定执行，等待 {wait_seconds} 秒模拟前摇 (1-20分钟)...")
               await asyncio.sleep(wait_seconds)
+
+              # 👇 双重保险：防并发撞车 👇
+              log("🔍 睡醒了，干活前再确认一眼账本...")
+              is_done_again, _ = check_github_ledger(today_str, month_str)
+              if is_done_again and not is_force:
+                  log(f"🛑 虚惊一场！刚才睡觉时已经有别的任务把今天 ({today_str}) 签掉了，直接下班！")
+                  return
 
               # 4. 🚀 真正开始干活
               async with TelegramClient(StringSession(session), api_id, api_hash, device_model="OnePlus PJZ110", system_version="ColorOS 16.0.2", app_version="12.3.1", lang_code="zh", system_lang_code="zh-CN") as client:
