@@ -1,4 +1,4 @@
-name: Telegram Auto Checkin (Alt) - V6.3 (Adaptive Random)
+name: Telegram Auto Checkin (Alt) - V6.4 (Stealth Edition)
 
 concurrency:
   group: ${{ github.workflow }}
@@ -231,7 +231,17 @@ jobs:
               sys_log(f"⏰ 决定起床！假装还在摸鱼，等待 {delay_secs} 秒后出击...")
               await asyncio.sleep(delay_secs)
 
-              async with TelegramClient(StringSession(session), api_id, api_hash, device_model="OnePlus 13") as client:
+              # V6.4: 注入极致逼真的设备底层环境参数
+              async with TelegramClient(
+                  StringSession(session), 
+                  api_id, 
+                  api_hash, 
+                  device_model="OnePlus 13 (PJZ110)",
+                  system_version="ColorOS 16.0.5",
+                  app_version="12.6.4",
+                  lang_code="zh",
+                  system_lang_code="zh-CN"
+              ) as client:
                   random.shuffle(configs)
                   sem = asyncio.Semaphore(3)
                   tasks = [process_task(client, item, sem) for item in configs]
