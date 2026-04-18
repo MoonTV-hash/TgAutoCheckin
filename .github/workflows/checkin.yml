@@ -5,10 +5,10 @@ concurrency:
 
 on:
   schedule:
-    - cron: '30 22 * * *'   
-    - cron: '30 23 * * *'   
-    - cron: '30 0 * * *'    
-    - cron: '30 1 * * *'    
+    - cron: '30 22 * * *'
+    - cron: '30 23 * * *'
+    - cron: '30 0 * * *'
+    - cron: '30 1 * * *'
   workflow_dispatch:
     inputs:
       force_run:
@@ -60,7 +60,7 @@ jobs:
           from email.header import Header
           from email.utils import formataddr
 
-          AC_TAG, FOCUS_PEER = "小号", "@xyz_gy_bot"
+          AC_TAG, FOCUS_PEER = "小号", "@qing_to"
           FALLBACK_KEYWORDS = ["签到", "打卡", "Check In", "Check-in", "Sign In", "领取", "Collect", "Bonus"]
           log_success, log_warn, log_fail = [], [], []
 
